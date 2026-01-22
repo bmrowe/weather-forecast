@@ -1,0 +1,16 @@
+Main "driver.lua"
+
+Module "drivers-common-public.global.handlers" "drivers-common-public/global/handlers.lua"
+Module "drivers-common-public.global.lib" "drivers-common-public/global/lib.lua"
+Module "drivers-common-public.global.make_short_link" "drivers-common-public/global/make_short_link.lua"
+Module "drivers-common-public.global.msp" "drivers-common-public/global/msp.lua"
+Module "drivers-common-public.global.timer" "drivers-common-public/global/timer.lua"
+Module "drivers-common-public.global.url" "drivers-common-public/global/url.lua"
+Module "drivers-common-public.module.auth_code_grant" "drivers-common-public/module/auth_code_grant.lua"
+Module "drivers-common-public.module.auth_device_PIN" "drivers-common-public/module/auth_device_PIN.lua"
+Module "drivers-common-public.module.json" "drivers-common-public/module/json.lua"
+Module "drivers-common-public.module.metrics" "drivers-common-public/module/metrics.lua"
+Module "drivers-common-public.module.ssdp" "drivers-common-public/module/ssdp.lua"
+Module "drivers-common-public.module.websocket" "drivers-common-public/module/websocket.lua"
+
+Output "driver.lua.squished"
