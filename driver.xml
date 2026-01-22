@@ -1,0 +1,141 @@
+<devicedata>
+  <copyright>Copyright 2026</copyright>
+  <manufacturer>Bryan Rowe</manufacturer>
+  <name>Simple Weather Forecast</name>
+  <model>Simple Weather Forecast</model>
+  <creator>Bryan</creator>
+  <created>08/12/2026 11:45</created>
+  <modified>08/12/2026 12:30</modified>
+  <version>3</version>
+  <control>lua_gen</control>
+  <driver>DriverWorks</driver>
+  
+  <combo>true</combo>
+  <proxies>
+    <proxy>weather-forecast</proxy>
+  </proxies>
+
+  <config>
+    <script file="driver.lua"></script>
+    
+    <actions>
+      <action>
+        <name>Refresh Weather</name>
+        <command>REFRESH_WEATHER</command>
+      </action>
+    </actions>
+
+    <commands>
+      <command>
+        <name>REFRESH_WEATHER</name>
+        <description>Force Update</description>
+      </command>
+    </commands>
+
+    <properties>
+      <property>
+        <name>Debug Mode</name>
+        <type>LIST</type>
+        <items><item>Off</item><item>On</item></items>
+        <default>Off</default>
+      </property>
+      <property>
+        <name>Latitude</name>
+        <type>STRING</type>
+        <default>43.0699</default>
+      </property>
+      <property>
+        <name>Longitude</name>
+        <type>STRING</type>
+        <default>-89.4126</default>
+      </property>
+      <property>
+        <name>Temperature Unit</name>
+        <type>LIST</type>
+        <items><item>Fahrenheit</item><item>Celsius</item></items>
+        <default>Fahrenheit</default>
+      </property>
+      <property>
+        <name>Update Interval (minutes)</name>
+        <type>RANGED_INTEGER</type>
+        <minimum>15</minimum>
+        <maximum>240</maximum>
+        <default>60</default>
+      </property>
+      
+      <property>
+        <name>Last Update:</name>
+        <type>STRING</type>
+        <default>Never</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Today High:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Today Low:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Feels Like High:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Feels Like Low:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Rain Chance:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Rain Total:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Rain Hours:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Max Wind:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>UV Index:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+    </properties>
+  </config>
+  
+  <events>
+      <event>
+          <id>1</id>
+          <name>Weather Updated</name>
+          <description>Data refreshed</description>
+      </event>
+      <event>
+          <id>2</id>
+          <name>Update Failed</name>
+          <description>Connection error</description>
+      </event>
+  </events>
+</devicedata>
