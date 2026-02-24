@@ -21,11 +21,14 @@ function OnDriverLateInit()
     if not Variables["TODAY_LOW"] then C4:AddVariable("TODAY_LOW", "0", "NUMBER", true, false) end
     if not Variables["FEELS_LIKE_HIGH"] then C4:AddVariable("FEELS_LIKE_HIGH", "0", "NUMBER", true, false) end
     if not Variables["FEELS_LIKE_LOW"] then C4:AddVariable("FEELS_LIKE_LOW", "0", "NUMBER", true, false) end
+    if not Variables["REMAINING_LOW"] then C4:AddVariable("REMAINING_LOW", "0", "NUMBER", true, false) end
+    if not Variables["REMAINING_FEELS_LIKE_LOW"] then C4:AddVariable("REMAINING_FEELS_LIKE_LOW", "0", "NUMBER", true, false) end
     if not Variables["RAIN_CHANCE"] then C4:AddVariable("RAIN_CHANCE", "0", "NUMBER", true, false) end
     if not Variables["RAIN_TOTAL"] then C4:AddVariable("RAIN_TOTAL", "0", "NUMBER", true, false) end
     if not Variables["RAIN_HOURS"] then C4:AddVariable("RAIN_HOURS", "0", "NUMBER", true, false) end
     if not Variables["MAX_WIND"] then C4:AddVariable("MAX_WIND", "0", "NUMBER", true, false) end
     if not Variables["UV_INDEX"] then C4:AddVariable("UV_INDEX", "0", "NUMBER", true, false) end
+    if not Variables["WEATHER_CODE"] then C4:AddVariable("WEATHER_CODE", "0", "NUMBER", true, false) end
     if not Variables["LAST_UPDATE"] then C4:AddVariable("LAST_UPDATE", "Never", "STRING", true, false) end
 
     StartUpdateTimer()
@@ -82,11 +85,14 @@ function FetchWeather(isRetry)
     local dailyParams = "temperature_2m_max,temperature_2m_min," ..
                         "apparent_temperature_max,apparent_temperature_min," ..
                         "precipitation_probability_max,precipitation_sum,precipitation_hours," ..
-                        "wind_speed_10m_max,uv_index_max"
+                        "wind_speed_10m_max,uv_index_max,weather_code"
+
+    local hourlyParams = "temperature_2m,apparent_temperature"
 
     local url = "https://api.open-meteo.com/v1/forecast?latitude=" .. lat .. 
                 "&longitude=" .. lon .. 
                 "&daily=" .. dailyParams .. 
+                "&hourly=" .. hourlyParams ..
                 "&temperature_unit=" .. unitParam .. 
                 "&wind_speed_unit=" .. windUnit .. 
                 "&precipitation_unit=" .. precipUnit .. 
@@ -186,6 +192,51 @@ function CheckResponse(strError, responseCode, tHeaders, data, context, url)
     local rainHrs = safeNumber(d.precipitation_hours and d.precipitation_hours[1], 0)
     local wind = safeNumber(d.wind_speed_10m_max and d.wind_speed_10m_max[1], 0)
     local uv = safeNumber(d.uv_index_max and d.uv_index_max[1], 0)
+    local weatherCode = safeNumber(d.weather_code and d.weather_code[1], 0)
+
+    -- Calculate remaining-day low using hourly data.
+    -- The API returns utc_offset_seconds for the requested timezone, so we use
+    -- that to determine the current local hour without relying on the controller's TZ.
+    local remainingLow = low
+    local remainingFeelsLow = feelsLow
+    local h = tData.hourly
+    if h and h.time and h.temperature_2m and h.apparent_temperature and tData.utc_offset_seconds then
+        local utcNow = os.time()  -- seconds since epoch, always UTC
+        local localNow = utcNow + tData.utc_offset_seconds
+        local currentHour = math.floor(localNow / 3600) % 24  -- 0-23 local hour
+
+        dbg("Current local hour (from API offset): " .. currentHour)
+
+        local minTemp = nil
+        local minFeels = nil
+
+        for i, timeStr in ipairs(h.time) do
+            -- timestamps are "2026-02-24T14:00" — extract the hour
+            local hourStr = string.match(timeStr, "T(%d%d):%d%d$")
+            local hourVal = tonumber(hourStr)
+            if hourVal and hourVal >= currentHour then
+                local t = h.temperature_2m[i]
+                local f = h.apparent_temperature[i]
+                if type(t) == "number" then
+                    if minTemp == nil or t < minTemp then minTemp = t end
+                end
+                if type(f) == "number" then
+                    if minFeels == nil or f < minFeels then minFeels = f end
+                end
+            end
+        end
+
+        if minTemp ~= nil then
+            remainingLow = round(minTemp)
+            dbg("Remaining low (from hour " .. currentHour .. " onward): " .. remainingLow)
+        end
+        if minFeels ~= nil then
+            remainingFeelsLow = round(minFeels)
+            dbg("Remaining feels-like low: " .. remainingFeelsLow)
+        end
+    else
+        dbg("Hourly data unavailable, falling back to daily low for remaining low")
+    end
 
     local distLabel = (Properties["Temperature Unit"] == "Celsius") and " km/h" or " mph"
     local rainLabel = (Properties["Temperature Unit"] == "Celsius") and " mm" or " in"
@@ -196,11 +247,14 @@ function CheckResponse(strError, responseCode, tHeaders, data, context, url)
     C4:UpdateProperty("Today Low:", low .. "°")
     C4:UpdateProperty("Feels Like High:", feelsHigh .. "°")
     C4:UpdateProperty("Feels Like Low:", feelsLow .. "°")
+    C4:UpdateProperty("Remaining Low:", remainingLow .. "°")
+    C4:UpdateProperty("Remaining Feels Like Low:", remainingFeelsLow .. "°")
     C4:UpdateProperty("Rain Chance:", rainChance .. "%")
     C4:UpdateProperty("Rain Total:", rainTotal .. rainLabel)
     C4:UpdateProperty("Rain Hours:", rainHrs .. " hrs")
     C4:UpdateProperty("Max Wind:", wind .. distLabel)
     C4:UpdateProperty("UV Index:", uv)
+    C4:UpdateProperty("Weather Code:", tostring(weatherCode))
 
     -- Update variables
     C4:SetVariable("LAST_UPDATE", timeStr)
@@ -208,11 +262,14 @@ function CheckResponse(strError, responseCode, tHeaders, data, context, url)
     C4:SetVariable("TODAY_LOW", low)
     C4:SetVariable("FEELS_LIKE_HIGH", feelsHigh)
     C4:SetVariable("FEELS_LIKE_LOW", feelsLow)
+    C4:SetVariable("REMAINING_LOW", remainingLow)
+    C4:SetVariable("REMAINING_FEELS_LIKE_LOW", remainingFeelsLow)
     C4:SetVariable("RAIN_CHANCE", rainChance)
     C4:SetVariable("RAIN_TOTAL", rainTotal)
     C4:SetVariable("RAIN_HOURS", rainHrs)
     C4:SetVariable("MAX_WIND", wind)
     C4:SetVariable("UV_INDEX", uv)
+    C4:SetVariable("WEATHER_CODE", weatherCode)
 
     dbg("Weather Updated Successfully")
     C4:FireEvent("Weather Updated")

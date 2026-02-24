@@ -94,6 +94,18 @@
         <readonly>true</readonly>
       </property>
       <property>
+        <name>Remaining Low:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Remaining Feels Like Low:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
         <name>Rain Chance:</name>
         <type>STRING</type>
         <default>--</default>
@@ -121,6 +133,12 @@
         <name>UV Index:</name>
         <type>STRING</type>
         <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Weather Code:</name>
+        <type>STRING</type>
+        <default>0</default>
         <readonly>true</readonly>
       </property>
     </properties>
