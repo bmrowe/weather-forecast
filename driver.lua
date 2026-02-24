@@ -27,8 +27,17 @@ function OnDriverLateInit()
     if not Variables["RAIN_TOTAL"] then C4:AddVariable("RAIN_TOTAL", "0", "NUMBER", true, false) end
     if not Variables["RAIN_HOURS"] then C4:AddVariable("RAIN_HOURS", "0", "NUMBER", true, false) end
     if not Variables["MAX_WIND"] then C4:AddVariable("MAX_WIND", "0", "NUMBER", true, false) end
+    if not Variables["MAX_GUST"] then C4:AddVariable("MAX_GUST", "0", "NUMBER", true, false) end
     if not Variables["UV_INDEX"] then C4:AddVariable("UV_INDEX", "0", "NUMBER", true, false) end
     if not Variables["WEATHER_CODE"] then C4:AddVariable("WEATHER_CODE", "0", "NUMBER", true, false) end
+    if not Variables["SUNRISE"] then C4:AddVariable("SUNRISE", "", "STRING", true, false) end
+    if not Variables["SUNSET"] then C4:AddVariable("SUNSET", "", "STRING", true, false) end
+    if not Variables["DAYLIGHT_MINUTES"] then C4:AddVariable("DAYLIGHT_MINUTES", "0", "NUMBER", true, false) end
+    if not Variables["CURRENT_TEMP"] then C4:AddVariable("CURRENT_TEMP", "0", "NUMBER", true, false) end
+    if not Variables["CURRENT_FEELS_LIKE"] then C4:AddVariable("CURRENT_FEELS_LIKE", "0", "NUMBER", true, false) end
+    if not Variables["CURRENT_WIND"] then C4:AddVariable("CURRENT_WIND", "0", "NUMBER", true, false) end
+    if not Variables["CURRENT_GUST"] then C4:AddVariable("CURRENT_GUST", "0", "NUMBER", true, false) end
+    if not Variables["CURRENT_CLOUD_COVER"] then C4:AddVariable("CURRENT_CLOUD_COVER", "0", "NUMBER", true, false) end
     if not Variables["LAST_UPDATE"] then C4:AddVariable("LAST_UPDATE", "Never", "STRING", true, false) end
 
     StartUpdateTimer()
@@ -85,7 +94,8 @@ function FetchWeather(isRetry)
     local dailyParams = "temperature_2m_max,temperature_2m_min," ..
                         "apparent_temperature_max,apparent_temperature_min," ..
                         "precipitation_probability_max,precipitation_sum,precipitation_hours," ..
-                        "wind_speed_10m_max,uv_index_max,weather_code"
+                        "wind_speed_10m_max,wind_gusts_10m_max,uv_index_max,weather_code," ..
+                        "sunrise,sunset,daylight_duration"
 
     local hourlyParams = "temperature_2m,apparent_temperature"
 
@@ -93,6 +103,7 @@ function FetchWeather(isRetry)
                 "&longitude=" .. lon .. 
                 "&daily=" .. dailyParams .. 
                 "&hourly=" .. hourlyParams ..
+                "&current_weather=true" ..
                 "&temperature_unit=" .. unitParam .. 
                 "&wind_speed_unit=" .. windUnit .. 
                 "&precipitation_unit=" .. precipUnit .. 
@@ -179,6 +190,15 @@ function CheckResponse(strError, responseCode, tHeaders, data, context, url)
         return (default or 0)
     end
 
+    local function formatIsoTime(iso)
+        if type(iso) ~= "string" then return "" end
+        local date, time = iso:match("^(%d%d%d%d%-%d%d%-%d%d)T(%d%d:%d%d)")
+        if date and time then
+            return date .. " " .. time
+        end
+        return iso
+    end
+
     -- Extract and validate data
     local timeStr = os.date("%Y-%m-%d %H:%M:%S")
 
@@ -191,8 +211,14 @@ function CheckResponse(strError, responseCode, tHeaders, data, context, url)
     local rainTotal = safeNumber(d.precipitation_sum and d.precipitation_sum[1], 0)
     local rainHrs = safeNumber(d.precipitation_hours and d.precipitation_hours[1], 0)
     local wind = safeNumber(d.wind_speed_10m_max and d.wind_speed_10m_max[1], 0)
+    local maxGust = safeNumber(d.wind_gusts_10m_max and d.wind_gusts_10m_max[1], 0)
     local uv = safeNumber(d.uv_index_max and d.uv_index_max[1], 0)
     local weatherCode = safeNumber(d.weather_code and d.weather_code[1], 0)
+
+    local sunriseIso = d.sunrise and d.sunrise[1] or ""
+    local sunsetIso = d.sunset and d.sunset[1] or ""
+    local daylightSeconds = safeNumber(d.daylight_duration and d.daylight_duration[1], 0)
+    local daylightMinutes = round(daylightSeconds / 60)
 
     -- Calculate remaining-day low using hourly data.
     -- The API returns utc_offset_seconds for the requested timezone, so we use
@@ -238,6 +264,24 @@ function CheckResponse(strError, responseCode, tHeaders, data, context, url)
         dbg("Hourly data unavailable, falling back to daily low for remaining low")
     end
 
+    -- Current conditions
+    local currentTemp = 0
+    local currentFeels = 0
+    local currentWind = 0
+    local currentGust = 0
+    local currentCloudCover = 0
+
+    if tData.current_weather then
+        local cw = tData.current_weather
+        currentTemp = safeNumber(cw.temperature, 0)
+        currentFeels = safeNumber(cw.apparent_temperature, currentTemp)
+        currentWind = safeNumber(cw.wind_speed_10m, 0)
+        currentGust = safeNumber(cw.wind_gusts_10m, 0)
+        currentCloudCover = safeNumber(cw.cloud_cover, 0)
+    else
+        dbg("Current weather data unavailable")
+    end
+
     local distLabel = (Properties["Temperature Unit"] == "Celsius") and " km/h" or " mph"
     local rainLabel = (Properties["Temperature Unit"] == "Celsius") and " mm" or " in"
 
@@ -253,8 +297,17 @@ function CheckResponse(strError, responseCode, tHeaders, data, context, url)
     C4:UpdateProperty("Rain Total:", rainTotal .. rainLabel)
     C4:UpdateProperty("Rain Hours:", rainHrs .. " hrs")
     C4:UpdateProperty("Max Wind:", wind .. distLabel)
+    C4:UpdateProperty("Max Gust:", maxGust .. distLabel)
     C4:UpdateProperty("UV Index:", uv)
     C4:UpdateProperty("Weather Code:", tostring(weatherCode))
+    C4:UpdateProperty("Sunrise:", formatIsoTime(sunriseIso))
+    C4:UpdateProperty("Sunset:", formatIsoTime(sunsetIso))
+    C4:UpdateProperty("Daylight (min):", tostring(daylightMinutes))
+    C4:UpdateProperty("Current Temp:", tostring(round(currentTemp)) .. "°")
+    C4:UpdateProperty("Current Feels Like:", tostring(round(currentFeels)) .. "°")
+    C4:UpdateProperty("Current Wind:", currentWind .. distLabel)
+    C4:UpdateProperty("Current Gust:", currentGust .. distLabel)
+    C4:UpdateProperty("Cloud Cover:", currentCloudCover .. "%")
 
     -- Update variables
     C4:SetVariable("LAST_UPDATE", timeStr)
@@ -268,8 +321,17 @@ function CheckResponse(strError, responseCode, tHeaders, data, context, url)
     C4:SetVariable("RAIN_TOTAL", rainTotal)
     C4:SetVariable("RAIN_HOURS", rainHrs)
     C4:SetVariable("MAX_WIND", wind)
+    C4:SetVariable("MAX_GUST", maxGust)
     C4:SetVariable("UV_INDEX", uv)
     C4:SetVariable("WEATHER_CODE", weatherCode)
+    C4:SetVariable("SUNRISE", formatIsoTime(sunriseIso))
+    C4:SetVariable("SUNSET", formatIsoTime(sunsetIso))
+    C4:SetVariable("DAYLIGHT_MINUTES", daylightMinutes)
+    C4:SetVariable("CURRENT_TEMP", round(currentTemp))
+    C4:SetVariable("CURRENT_FEELS_LIKE", round(currentFeels))
+    C4:SetVariable("CURRENT_WIND", currentWind)
+    C4:SetVariable("CURRENT_GUST", currentGust)
+    C4:SetVariable("CURRENT_CLOUD_COVER", currentCloudCover)
 
     dbg("Weather Updated Successfully")
     C4:FireEvent("Weather Updated")

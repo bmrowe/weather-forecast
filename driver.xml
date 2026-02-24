@@ -141,6 +141,60 @@
         <default>0</default>
         <readonly>true</readonly>
       </property>
+      <property>
+        <name>Sunrise:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Sunset:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Daylight (min):</name>
+        <type>STRING</type>
+        <default>0</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Current Temp:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Current Feels Like:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Current Wind:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Current Gust:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Max Gust:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
+      <property>
+        <name>Cloud Cover:</name>
+        <type>STRING</type>
+        <default>--</default>
+        <readonly>true</readonly>
+      </property>
     </properties>
   </config>
   
