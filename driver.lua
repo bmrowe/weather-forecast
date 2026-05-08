@@ -6,6 +6,7 @@ JSON = require ('drivers-common-public.module.json')
 g_UpdateTimer = nil
 g_RetryTimer = nil
 g_Initializing = false
+g_RequestId = 0
 
 function dbg(message)
     if (Properties['Debug Mode'] == 'On') then
@@ -98,12 +99,14 @@ function FetchWeather(isRetry)
                         "sunrise,sunset,daylight_duration"
 
     local hourlyParams = "temperature_2m,apparent_temperature"
+    local currentParams = "temperature_2m,apparent_temperature,wind_speed_10m," ..
+                          "wind_gusts_10m,cloud_cover"
 
     local url = "https://api.open-meteo.com/v1/forecast?latitude=" .. lat .. 
                 "&longitude=" .. lon .. 
                 "&daily=" .. dailyParams .. 
                 "&hourly=" .. hourlyParams ..
-                "&current_weather=true" ..
+                "&current=" .. currentParams ..
                 "&temperature_unit=" .. unitParam .. 
                 "&wind_speed_unit=" .. windUnit .. 
                 "&precipitation_unit=" .. precipUnit .. 
@@ -116,11 +119,21 @@ function FetchWeather(isRetry)
         timeout = 30000  -- 30 second timeout
     }
 
-    local context = { isRetry = isRetry or false }
+    if not isRetry then
+        g_RequestId = g_RequestId + 1
+    end
+
+    local context = { isRetry = isRetry or false, requestId = g_RequestId }
     urlGet(url, {}, CheckResponse, context, options)
 end
 
 function CheckResponse(strError, responseCode, tHeaders, data, context, url)
+    context = context or {}
+    if context.requestId ~= g_RequestId then
+        dbg("Ignoring stale weather response")
+        return
+    end
+
     if (strError) then
         dbg("Network Error: " .. strError)
 
@@ -128,8 +141,13 @@ function CheckResponse(strError, responseCode, tHeaders, data, context, url)
         if not context.isRetry then
             dbg("Scheduling retry in 30 seconds...")
             if g_RetryTimer then g_RetryTimer:Cancel() end
-            g_RetryTimer = C4:SetTimer(30000, function() 
-                FetchWeather(true)
+            local retryRequestId = context.requestId
+            g_RetryTimer = C4:SetTimer(30000, function()
+                if retryRequestId == g_RequestId then
+                    FetchWeather(true)
+                else
+                    dbg("Skipping stale weather retry")
+                end
                 g_RetryTimer = nil
             end, false)
             return
@@ -271,9 +289,9 @@ function CheckResponse(strError, responseCode, tHeaders, data, context, url)
     local currentGust = 0
     local currentCloudCover = 0
 
-    if tData.current_weather then
-        local cw = tData.current_weather
-        currentTemp = safeNumber(cw.temperature, 0)
+    if tData.current then
+        local cw = tData.current
+        currentTemp = safeNumber(cw.temperature_2m, 0)
         currentFeels = safeNumber(cw.apparent_temperature, currentTemp)
         currentWind = safeNumber(cw.wind_speed_10m, 0)
         currentGust = safeNumber(cw.wind_gusts_10m, 0)
